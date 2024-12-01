@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+type comparable interface {
+	~int | ~float64 | ~string | ~bool | ~byte | ~rune
+}
+
 func absInt(x int) int {
 	if x < 0 {
 		return -x
@@ -16,7 +20,7 @@ func absInt(x int) int {
 	return x
 }
 
-func countInt(slice []T, x T) int {
+func countInt[T comparable](slice []T, x T) int {
 	var count = 0
 	for _, a := range slice {
 		if a == x {
