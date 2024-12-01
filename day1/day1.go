@@ -16,8 +16,20 @@ func absInt(x int) int {
 	return x
 }
 
+func countInt(slice []T, x T) int {
+	var count = 0
+	for _, a := range slice {
+		if a == x {
+			count += 1
+		}
+	}
+	return count
+}
+
 func main() {
 	var distance = 0
+
+	var similarity = 0
 
 	var list1 []int
 	var list2 []int
@@ -50,6 +62,8 @@ func main() {
 		list1 = append(list1, int(int1))
 		list2 = append(list2, int(int2))
 	}
+
+	// Part 1
 	slices.Sort(list1)
 	slices.Sort(list2)
 	if len(list1) != len(list2) {
@@ -61,5 +75,12 @@ func main() {
 	}
 
 	fmt.Printf("Part1 (distance): %d \n", distance)
+
+	// Part 2
+	for _, number := range list1 {
+		similarity += number * countInt(list2, number)
+	}
+
+	fmt.Printf("Part2 (similarity): %d \n", similarity)
 
 }
