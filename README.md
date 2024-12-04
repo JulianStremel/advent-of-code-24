@@ -37,5 +37,8 @@ This repository contains:
 
 Wishing you a **Merry Christmas** and happy coding! 🎄✨
 
+---
 
 _Kindly generated using GPT 4o because who got time to write readmes..._
+
+_I use Copilot in my normal coding workflows but this is just for me to get better and more productive in go on my own so no LLMs appart from this README :)_
