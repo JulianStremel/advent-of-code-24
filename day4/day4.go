@@ -9,63 +9,94 @@ import (
 )
 
 func checkXmas(data []byte) bool {
-	return string(data[:]) == "XMAS" || string(data[:]) == "SAMX"
+	var str = string(data)
+	return str == "XMAS" || str == "SAMX"
 }
 
 func horizontal(row int, col int, array [][]byte) []byte {
-	var tmp []byte = make([]byte, 0)
-	if len(array) < row || row < 0 {
-		return tmp
+	if row < 0 || row >= len(array) {
+		return nil
 	}
-	if len(array[row])-4 < col || col < 0 {
-		return tmp
+	if col < 0 || col+3 >= len(array[row]) {
+		return nil
 	}
 	return array[row][col : col+4]
 }
 
 func vertical(row int, col int, array [][]byte) []byte {
-	var tmp []byte = make([]byte, 0)
-	if len(array)-4 < row || row < 0 {
-		return tmp
+	if col < 0 || col >= len(array[row]) {
+		return nil
 	}
-	if len(array[row]) < col || col < 0 {
-		return tmp
+	if row < 0 || row+3 >= len(array) {
+		return nil
 	}
-	tmp = append(tmp, array[row][col])
-	tmp = append(tmp, array[row+1][col])
-	tmp = append(tmp, array[row+2][col])
-	tmp = append(tmp, array[row+3][col])
-	return tmp
+	return []byte{
+		array[row][col],
+		array[row+1][col],
+		array[row+2][col],
+		array[row+3][col],
+	}
 }
 
 func diagLtoR(row int, col int, array [][]byte) []byte {
-	var tmp []byte = make([]byte, 0)
-	if len(array)-4 < row || row < 0 {
-		return tmp
+	if row < 0 || row+3 >= len(array) {
+		return nil
 	}
-	if len(array[row])-4 < col || col < 0 {
-		return tmp
+	if col < 0 || col+3 >= len(array[row]) {
+		return nil
 	}
-	tmp = append(tmp, array[row][col])
-	tmp = append(tmp, array[row+1][col+1])
-	tmp = append(tmp, array[row+2][col+2])
-	tmp = append(tmp, array[row+3][col+3])
-	return tmp
+	return []byte{
+		array[row][col],
+		array[row+1][col+1],
+		array[row+2][col+2],
+		array[row+3][col+3],
+	}
 }
 
 func diagRtoL(row int, col int, array [][]byte) []byte {
-	var tmp []byte = make([]byte, 0)
-	if len(array)-4 < row || row < 0 {
-		return tmp
+	if row < 0 || row+3 >= len(array) {
+		return nil
 	}
-	if len(array[row])-4 < col || col < 0 {
-		return tmp
+	if col < 0 || col+3 >= len(array[row]) {
+		return nil
 	}
-	tmp = append(tmp, array[row][col+3])
-	tmp = append(tmp, array[row+1][col+2])
-	tmp = append(tmp, array[row+2][col+1])
-	tmp = append(tmp, array[row+3][col])
-	return tmp
+	return []byte{
+		array[row][col+3],
+		array[row+1][col+2],
+		array[row+2][col+1],
+		array[row+3][col],
+	}
+}
+
+func xMas(row int, col int, array [][]byte) bool {
+	if len(array)-3 < row || row < 0 {
+		return false
+	}
+	if len(array[row])-3 < col || col < 0 {
+		return false
+	}
+
+	var tmp [][]byte = make([][]byte, 2)
+	tmp[0] = []byte{
+		array[row][col],
+		array[row+1][col+1],
+		array[row+2][col+2]}
+
+	tmp[1] = []byte{
+		array[row+2][col],
+		array[row+1][col+1],
+		array[row][col+2]}
+
+	var str = string(tmp[0])
+	if !(str == "MAS" || str == "SAM") {
+		return false
+	}
+	str = string(tmp[1])
+	if !(str == "MAS" || str == "SAM") {
+		return false
+	}
+
+	return true
 }
 
 func main() {
@@ -83,24 +114,32 @@ func main() {
 		file_bytes = append(file_bytes, fileScanner.Bytes())
 	}
 
-	var count = 0
-	for row, row_bytes := range file_bytes {
-		for column, _ := range row_bytes {
+	var count1 = 0
+	var count2 = 0
+	for row := range file_bytes {
+		for column := range file_bytes[row] {
 			if checkXmas(horizontal(row, column, file_bytes)) {
-				count += 1
+				count1 += 1
 			}
 			if checkXmas(vertical(row, column, file_bytes)) {
-				count += 1
+				count1 += 1
 			}
 			if checkXmas(diagLtoR(row, column, file_bytes)) {
-				count += 1
+				count1 += 1
 			}
 			if checkXmas(diagRtoL(row, column, file_bytes)) {
-				count += 1
+				count1 += 1
+			}
+			// Part 2
+			if xMas(row, column, file_bytes) {
+				count2 += 1
 			}
 		}
 
 	}
-	// 2276 too low
-	fmt.Printf("Part 1: %d\n", count)
+
+	fmt.Printf("Part 1: %d\n", count1)
+
+	fmt.Printf("Part 2: %d\n", count2)
+
 }
