@@ -3,12 +3,10 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"math/rand"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 func check(checks, combinations [][]int) (sum int, faulty [][]int) {
@@ -40,6 +38,47 @@ func check(checks, combinations [][]int) (sum int, faulty [][]int) {
 		}
 	}
 	return sum, faulty
+}
+
+func correct(checks, combinations [][]int) (sum int, corrected [][]int) {
+	// pages -> list of pages
+	index := 0
+	retry := true
+	var pages = checks[index]
+	for {
+		if retry {
+			retry = false
+		} else {
+			corrected = append(corrected, pages)
+			fmt.Println(pages)
+			index += 1
+			sum += pages[len(pages)/2]
+			if index >= len(checks) {
+				break
+			}
+			pages = checks[index]
+		}
+		// page -> single page (int)
+		for b, page := range pages {
+			if retry {
+				break
+			}
+			// pair -> (int,int)
+			for _, pair := range combinations {
+				if page == pair[0] {
+					if slices.Contains(pages[0:b], pair[1]) {
+						index2 := slices.Index(pages, pair[1])
+						pages[b], pages[index2] = pages[index2], pages[b]
+						//fmt.Println("retrying:")
+						//fmt.Println(pages)
+						retry = true
+						break
+					}
+				}
+			}
+		}
+	}
+	return sum, corrected
 }
 
 func main() {
@@ -93,25 +132,8 @@ func main() {
 	sum, faulty := check(checks, combinations)
 
 	fmt.Printf("Part 1: %d", sum)
-	var wg sync.WaitGroup
-	for _, fault := range faulty {
-		wg.Add(1)
-		fmt.Println("started on")
-		fmt.Println(fault)
-		go func() {
-			var flt = [][]int{[]int{10}}
-			for {
-				if len(flt) == 0 {
-					break
-				}
-				//fmt.Println(flt)
-				rand.Shuffle(len(fault), func(i, j int) { fault[i], fault[j] = fault[j], fault[i] })
-				_, flt = check([][]int{fault}, combinations)
-			}
-			fmt.Println(fault)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
 
+	sum, _ = correct(faulty, combinations)
+
+	fmt.Printf("Part 2: %d", sum)
 }
