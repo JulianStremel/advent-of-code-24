@@ -50,7 +50,6 @@ func correct(checks, combinations [][]int) (sum int, corrected [][]int) {
 			retry = false
 		} else {
 			corrected = append(corrected, pages)
-			fmt.Println(pages)
 			index += 1
 			sum += pages[len(pages)/2]
 			if index >= len(checks) {
@@ -69,8 +68,6 @@ func correct(checks, combinations [][]int) (sum int, corrected [][]int) {
 					if slices.Contains(pages[0:b], pair[1]) {
 						index2 := slices.Index(pages, pair[1])
 						pages[b], pages[index2] = pages[index2], pages[b]
-						//fmt.Println("retrying:")
-						//fmt.Println(pages)
 						retry = true
 						break
 					}
