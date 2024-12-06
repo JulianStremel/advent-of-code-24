@@ -27,7 +27,6 @@ This repository contains:
 .
 ├── day1/
 │   ├── day1.go      # Solution code
-│   ├── input.txt    # Puzzle input
 │   └── (README.md)  # Explanation of the solution
 ├── README.md        # You're here!
 └── go.mod           # Module definition
