@@ -3,290 +3,295 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/gif"
 	"os"
+	"runtime"
+	"sort"
 	"strings"
+	"sync"
+
+	"github.com/fogleman/gg"
 )
 
-func moveUp(grid [][]string, start []int) (movable bool, direction int, steps int, grd [][]string) {
-	if start[0] <= 0 {
-		grid[start[0]][start[1]] = "X"
-		return false, 0, 0, grid
+type Position struct {
+	y int
+	x int
+}
+
+type Game struct {
+	Grid          [][]string
+	max_x         int
+	max_y         int
+	position      Position
+	direction     int // 0 up | 1 right | 2 down | 3 left
+	start         Position
+	steps         int
+	render_buffer []string
+}
+
+type frameData struct {
+	index int
+	frame *image.Paletted
+}
+
+type renderData struct {
+	index int
+	data  string
+}
+
+func renderFrame(block string, width, height int, fontSize float64) *image.Paletted {
+	// Create a new image
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	white := color.RGBA{255, 255, 255, 255}
+	draw.Draw(img, img.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
+
+	// Draw the text block on the image
+	dc := gg.NewContextForRGBA(img)
+	dc.SetRGB(0, 0, 0)                     // Black color for text
+	dc.LoadFontFace("arial.ttf", fontSize) // Ensure you have this font file
+	lines := strings.Split(block, "\n")
+	y := fontSize
+	for _, line := range lines {
+		dc.DrawString(line, 10, y)
+		y += fontSize + 2 // Line spacing
 	}
-	if grid[start[0]-1][start[1]] != "#" {
-		grid[start[0]][start[1]] = "X"
-		return true, 0, 1, grid
-	} else {
-		grid[start[0]][start[1]] = "X"
-		return true, 1, 0, grid
+
+	// Render the text to the image
+	dc.Fill()
+
+	// Convert to paletted image for GIF
+	palettedImg := image.NewPaletted(img.Bounds(), color.Palette{white, color.Black})
+	draw.FloydSteinberg.Draw(palettedImg, img.Bounds(), img, image.Point{})
+
+	return palettedImg
+}
+
+func worker(jobs <-chan renderData, results chan<- frameData, width, height int, fontSize float64, progressChan chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for job := range jobs {
+		frame := renderFrame(job.data, width, height, fontSize)
+		results <- frameData{index: job.index, frame: frame}
+		progressChan <- 1 // Update progress
 	}
 }
 
-func moveRight(grid [][]string, start []int) (movable bool, direction int, steps int, grd [][]string) {
-	if start[1] >= len(grid[0])-1 {
-		grid[start[0]][start[1]] = "X"
-		return false, 1, 0, grid
-	}
-	if grid[start[0]][start[1]+1] != "#" {
-		grid[start[0]][start[1]] = "X"
-		return true, 1, 1, grid
-	} else {
-		grid[start[0]][start[1]] = "X"
-		return true, 2, 0, grid
-	}
-}
+func (g *Game) init(path string) {
 
-func moveDown(grid [][]string, start []int) (movable bool, direction int, steps int, grd [][]string) {
-	if start[0] >= len(grid)-1 {
-		grid[start[0]][start[1]] = "X"
-		return false, 2, 0, grid
-	}
-	if grid[start[0]+1][start[1]] != "#" {
-		grid[start[0]][start[1]] = "X"
-		return true, 2, 1, grid
-	} else {
-		grid[start[0]][start[1]] = "X"
-		return true, 3, 0, grid
-	}
-}
-
-func moveLeft(grid [][]string, start []int) (movable bool, direction int, steps int, grd [][]string) {
-	if start[1] <= 0 {
-		grid[start[0]][start[1]] = "X"
-		return false, 3, 0, grid
-	}
-	if grid[start[0]][start[1]-1] != "#" {
-		grid[start[0]][start[1]] = "X"
-		return true, 3, 1, grid
-	} else {
-		grid[start[0]][start[1]] = "X"
-		return true, 0, 0, grid
-	}
-}
-
-func move(grid [][]string, start []int, direction int) (steps int, path [][]int) {
-	var mov bool = true
-	var stp int
-	var dir = direction
-	var strt = start
-	var grd = grid
-	steps = 0
-	for mov {
-		switch dir {
-		case 0:
-			mov, dir, stp, grd = moveUp(grd, strt)
-			if mov && stp > 0 {
-				strt[0] = strt[0] - 1
-			}
-			steps += stp
-		case 1:
-			mov, dir, stp, grd = moveRight(grd, strt)
-			if mov && stp > 0 {
-				strt[1] = strt[1] + 1
-			}
-			steps += stp
-		case 2:
-			mov, dir, stp, grd = moveDown(grd, strt)
-			if mov && stp > 0 {
-				strt[0] = strt[0] + 1
-			}
-			steps += stp
-		case 3:
-			mov, dir, stp, grd = moveLeft(grd, strt)
-			if mov && stp > 0 {
-				strt[1] = strt[1] - 1
-			}
-			steps += stp
-		default:
-			fmt.Println("no way")
-		}
-	}
-	var cnt = 0
-	var ret [][]int
-	for a, row := range grd {
-		for b, col := range row {
-			if col == "X" {
-				cnt++
-				ret = append(ret, []int{a, b})
-			}
-		}
-	}
-	return cnt, ret
-}
-
-func moveUp2(grid [][]string, start []int) (movable bool, direction int, step int) {
-	if start[0] <= 0 {
-		return false, 0, 0
-	}
-	if grid[start[0]-1][start[1]] != "#" {
-		return true, 0, 1
-	} else {
-		return true, 1, 0
-	}
-}
-
-func moveRight2(grid [][]string, start []int) (movable bool, direction int, step int) {
-	if start[1] >= len(grid[0])-1 {
-		return false, 1, 0
-	}
-	if grid[start[0]][start[1]+1] != "#" {
-		return true, 1, 1
-	} else {
-		return true, 2, 0
-	}
-}
-
-func moveDown2(grid [][]string, start []int) (movable bool, direction int, step int) {
-	if start[0] >= len(grid)-1 {
-		return false, 2, 0
-	}
-	if grid[start[0]+1][start[1]] != "#" {
-		return true, 2, 1
-	} else {
-		return true, 3, 0
-	}
-}
-
-func moveLeft2(grid [][]string, start []int) (movable bool, direction int, step int) {
-	if start[1] <= 0 {
-		return false, 3, 0
-	}
-	if grid[start[0]][start[1]-1] != "#" {
-		return true, 3, 1
-	} else {
-		return true, 0, 0
-	}
-}
-
-type dir struct {
-	y   int
-	x   int
-	dir int
-}
-
-func (d dir) compare(c dir) bool {
-	if c.x == d.x && c.y == d.y && c.dir == d.dir {
-		return true
-	}
-	return false
-}
-
-func (d dir) isCointained(c []dir) bool {
-	for _, di := range c {
-		if d.compare(di) {
-			return true
-		}
-	}
-	return false
-}
-
-func move2(grid [][]string, start []int, direction int) bool {
-	var mov bool = true
-	var dirs []dir
-	var tmp dir
-	var stp int
-	for mov {
-		switch direction {
-		case 0:
-			mov, direction, stp = moveUp2(grid, start)
-			if mov && stp > 0 {
-				tmp = dir{start[0], start[1], direction}
-				if tmp.isCointained(dirs) {
-					return true
-				}
-				start[0] = start[0] - 1
-				dirs = append(dirs, tmp)
-			}
-		case 1:
-			mov, direction, stp = moveRight2(grid, start)
-			if mov && stp > 0 {
-				tmp = dir{start[0], start[1], direction}
-				if tmp.isCointained(dirs) {
-					return true
-				}
-				start[1] = start[1] + 1
-				dirs = append(dirs, tmp)
-			}
-		case 2:
-			mov, direction, stp = moveDown2(grid, start)
-			if mov && stp > 0 {
-				tmp = dir{start[0], start[1], direction}
-				if tmp.isCointained(dirs) {
-					return true
-				}
-				start[0] = start[0] + 1
-				dirs = append(dirs, tmp)
-			}
-		case 3:
-			mov, direction, stp = moveLeft2(grid, start)
-			if mov && stp > 0 {
-				tmp = dir{start[0], start[1], direction}
-				if tmp.isCointained(dirs) {
-					return true
-				}
-				start[1] = start[1] - 1
-				dirs = append(dirs, tmp)
-			}
-		default:
-			fmt.Println("no way")
-		}
-	}
-	return false
-}
-
-func main() {
-	var fileLines [][]string
-	var fileLines2 [][]string
-
-	readFile, err := os.Open("day6/input.txt")
+	readFile, err := os.Open(path)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fileScanner := bufio.NewScanner(readFile)
 	fileScanner.Split(bufio.ScanLines)
 
-	var start []int
-	var start2 []int
-	var direction int // 0 -> up | 1 -> right | 2 -> down | 3 -> left
 	var line []string
-	var line2 []string
 	var a = 0
 	for fileScanner.Scan() {
 		line = strings.Split(fileScanner.Text(), "")
-		line2 = strings.Split(fileScanner.Text(), "")
-		fileLines = append(fileLines, line)
-		fileLines2 = append(fileLines2, line2)
+		g.Grid = append(g.Grid, line)
 		for b, letter := range line {
 			switch letter {
 			case "^":
-				start = append(start, a, b)
-				direction = 0
+				g.start = Position{a, b}
+				g.direction = 0
 			case ">":
-				start = append(start, a, b)
-				direction = 1
+				g.start = Position{a, b}
+				g.direction = 1
 			case "v":
-				start = append(start, a, b)
-				direction = 2
+				g.start = Position{a, b}
+				g.direction = 2
 			case "<":
-				start = append(start, a, b)
-				direction = 3
+				g.start = Position{a, b}
+				g.direction = 3
 			}
 		}
 		a++
 	}
 	readFile.Close()
-	start2 = append(start2, start...)
-	stp, path := move(fileLines, start, direction)
+	g.max_x = len(g.Grid[0]) - 1
+	g.max_y = len(g.Grid) - 1
+	g.position = g.start
+}
 
-	var cnt = 0
-	for a, coord := range path {
-		fileLines2[coord[0]][coord[1]] = "#"
-		if move2(fileLines2, []int{start2[0], start2[1]}, 0) {
-			cnt++
+func (g *Game) forward(trace bool) bool {
+	switch g.direction {
+	case 0:
+		if g.position.y <= 0 {
+			return false
 		}
-		fileLines2[coord[0]][coord[1]] = "."
-		fmt.Printf("tested %d of %d possbile positions (%f%%)\n", a, len(path), float32(a)/float32(len(path))*100.0)
+		if g.Grid[g.position.y-1][g.position.x] == "#" {
+			g.direction = 1
+			return true
+		} else {
+			if trace {
+				g.Grid[g.position.y][g.position.x] = "|"
+			}
+			g.position.y -= 1
+			g.steps += 1
+			return true
+		}
+	case 1:
+		if g.position.x >= g.max_x {
+			return false
+		}
+		if g.Grid[g.position.y][g.position.x+1] == "#" {
+			g.direction = 2
+			return true
+		} else {
+			if trace {
+				g.Grid[g.position.y][g.position.x] = "-"
+			}
+			g.position.x += 1
+			g.steps += 1
+			return true
+		}
+	case 2:
+		if g.position.y >= g.max_y {
+			return false
+		}
+		if g.Grid[g.position.y+1][g.position.x] == "#" {
+			g.direction = 3
+			return true
+		} else {
+			if trace {
+				g.Grid[g.position.y][g.position.x] = "|"
+			}
+			g.position.y += 1
+			g.steps += 1
+			return true
+		}
+	case 3:
+		if g.position.x <= 0 {
+			return false
+		}
+		if g.Grid[g.position.y][g.position.x-1] == "#" {
+			g.direction = 0
+			return true
+		} else {
+			if trace {
+				g.Grid[g.position.y][g.position.x] = "-"
+			}
+			g.position.x -= 1
+			g.steps += 1
+			return true
+		}
+	default:
+		panic("This case should not be triggered")
+	}
+}
+
+func (g *Game) generateGif(path string) {
+	// Settings
+	width := 930
+	height := 1040
+	fontSize := 6.0
+	totalFrames := len(g.render_buffer) / 10
+	numCores := runtime.NumCPU()
+
+	// Create channels
+	jobs := make(chan renderData, totalFrames)
+	results := make(chan frameData, totalFrames)
+	progressChan := make(chan int, totalFrames)
+
+	// Add frames to the job queue
+	go func() {
+		for i, block := range g.render_buffer {
+			if i%10 == 0 {
+				jobs <- renderData{index: i, data: block}
+			}
+		}
+		close(jobs)
+	}()
+
+	// Launch workers
+	var wg sync.WaitGroup
+	for i := 0; i < numCores*2; i++ {
+		wg.Add(1)
+		go worker(jobs, results, width, height, fontSize, progressChan, &wg)
 	}
 
-	fmt.Printf("Part 1: %d", stp)
-	fmt.Printf("Part 2: %d", cnt)
+	// Progress display
+	go func() {
+		completed := 0
+		for progress := range progressChan {
+			completed += progress
+			percentage := float64(completed) / float64(totalFrames) * 100
+			fmt.Printf("\rRendering frames: %d/%d (%.2f%%)", completed, totalFrames, percentage)
+		}
+		fmt.Println()
+	}()
+
+	// Wait for workers to finish
+	go func() {
+		wg.Wait()
+		close(results)
+		close(progressChan)
+	}()
+
+	// Collect and sort results
+	var frames []frameData
+	for frame := range results {
+		frames = append(frames, frame)
+	}
+	fmt.Println()
+
+	sort.Slice(frames, func(i, j int) bool {
+		return frames[i].index < frames[j].index
+	})
+
+	// Assemble frames into the GIF
+	outGIF := &gif.GIF{}
+	for a, frame := range frames {
+		outGIF.Image = append(outGIF.Image, frame.frame)
+		outGIF.Delay = append(outGIF.Delay, 1) // Delay in 100ths of a second
+		percentage := float64(a) / float64(totalFrames) * 100
+		fmt.Printf("\rStitching frames: %d/%d (%.2f%%)", a, totalFrames, percentage)
+	}
+	fmt.Printf("\nsaving Gif to: %s", path)
+
+	// Save the GIF to a file
+	f, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	err = gif.EncodeAll(f, outGIF)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (g *Game) render() {
+	var str = ""
+	for a, line := range g.Grid {
+		if a == g.position.y {
+			for b, char := range line {
+				if b == g.position.x {
+					str += "O"
+				} else {
+					str += char
+				}
+			}
+		} else {
+			str += strings.Join(line, "")
+		}
+		str += "\n"
+	}
+	g.render_buffer = append(g.render_buffer, str)
+}
+
+func main() {
+	var game = Game{}
+	game.init("day6/input.txt")
+	var retry = true
+	for retry {
+		retry = game.forward(true)
+		game.render()
+	}
+	fmt.Println(game.steps)
+	game.generateGif("test.gif")
 }
