@@ -151,4 +151,6 @@ func main() {
 
 	fmt.Println(move(fileLines, start, direction))
 
+	fmt.Println(fileLines)
+
 }
