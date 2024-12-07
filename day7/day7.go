@@ -101,18 +101,21 @@ func solvable1(solution int, numbers []int) bool {
 func solvable2(solution int, numbers []int) bool {
 	// for 4 elements we would have 3 slots of computations
 	var slots = len(numbers) - 1
-	var possible = int(math.Pow(2, float64(slots)))
+	var possible = int(math.Pow(3, float64(slots)))
 	var operations [][]string
 	for a := range possible {
 		var compute []string
 		current := a
 		for range slots {
-			if current%3 == 0 {
+			switch current % 3 {
+			case 0:
 				compute = append(compute, "+")
-			} else {
+			case 1:
 				compute = append(compute, "*")
+			case 2:
+				compute = append(compute, "|")
 			}
-			current /= 2
+			current /= 3
 		}
 		operations = append(operations, compute)
 	}
@@ -120,10 +123,19 @@ func solvable2(solution int, numbers []int) bool {
 	for _, operation := range operations {
 		var sol = numbers[0]
 		for b, op := range operation {
-			if op == "+" {
+			switch op {
+			case "+":
 				sol += numbers[b+1]
-			} else {
-				sol = sol * numbers[b+1]
+			case "*":
+				sol *= numbers[b+1]
+			case "|":
+				s1 := strconv.FormatInt(int64(sol), 10)
+				s2 := strconv.FormatInt(int64(numbers[b+1]), 10)
+				in, err := strconv.Atoi(s1 + s2)
+				if err != nil {
+					panic(err)
+				}
+				sol = in
 			}
 		}
 		if sol == solution {
@@ -147,9 +159,7 @@ func main() {
 	for a, b := range game.input {
 		if solvable2(a, b) {
 			cnt += a
-			fmt.Println("YEEEEEEEEE")
-		} else {
-			fmt.Println("no")
 		}
 	}
+	fmt.Println(cnt)
 }
