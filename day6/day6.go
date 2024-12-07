@@ -16,22 +16,6 @@ import (
 	"github.com/fogleman/gg"
 )
 
-type Position struct {
-	y int
-	x int
-}
-
-type Game struct {
-	Grid          [][]string
-	max_x         int
-	max_y         int
-	position      Position
-	direction     int // 0 up | 1 right | 2 down | 3 left
-	start         Position
-	steps         int
-	render_buffer []string
-}
-
 type frameData struct {
 	index int
 	frame *image.Paletted
@@ -76,6 +60,38 @@ func worker(jobs <-chan renderData, results chan<- frameData, width, height int,
 		results <- frameData{index: job.index, frame: frame}
 		progressChan <- 1 // Update progress
 	}
+}
+
+type Position struct {
+	y int
+	x int
+}
+
+type PathTile struct {
+	pos Position
+	dir int
+}
+
+func (p *PathTile) isContained(l []PathTile) bool {
+	for _, pl := range l {
+		if pl.pos.x == p.pos.x && pl.pos.y == p.pos.y && pl.dir == p.dir {
+			return true
+		}
+	}
+	return false
+}
+
+type Game struct {
+	Grid          [][]string
+	max_x         int
+	max_y         int
+	position      Position
+	direction     int // 0 up | 1 right | 2 down | 3 left
+	start         Position
+	steps         int
+	render_buffer []string
+	path          []PathTile
+	obstacles     []Position
 }
 
 func (g *Game) init(path string) {
@@ -130,6 +146,7 @@ func (g *Game) forward(trace bool) bool {
 				g.Grid[g.position.y][g.position.x] = "|"
 			}
 			g.position.y -= 1
+			g.path = append(g.path, PathTile{g.position, g.direction})
 			g.steps += 1
 			return true
 		}
@@ -145,6 +162,7 @@ func (g *Game) forward(trace bool) bool {
 				g.Grid[g.position.y][g.position.x] = "-"
 			}
 			g.position.x += 1
+			g.path = append(g.path, PathTile{g.position, g.direction})
 			g.steps += 1
 			return true
 		}
@@ -160,6 +178,7 @@ func (g *Game) forward(trace bool) bool {
 				g.Grid[g.position.y][g.position.x] = "|"
 			}
 			g.position.y += 1
+			g.path = append(g.path, PathTile{g.position, g.direction})
 			g.steps += 1
 			return true
 		}
@@ -175,8 +194,97 @@ func (g *Game) forward(trace bool) bool {
 				g.Grid[g.position.y][g.position.x] = "-"
 			}
 			g.position.x -= 1
+			g.path = append(g.path, PathTile{g.position, g.direction})
 			g.steps += 1
 			return true
+		}
+	default:
+		panic("This case should not be triggered")
+	}
+}
+
+func (g *Game) detectLoop(trace bool) (next, loop bool) {
+	var pt PathTile
+	switch g.direction {
+	case 0:
+		if g.position.y <= 0 {
+			return false, false
+		}
+		if g.Grid[g.position.y-1][g.position.x] == "#" {
+			g.direction = 1
+			return true, false
+		} else {
+			if trace {
+				g.Grid[g.position.y][g.position.x] = "|"
+			}
+			g.position.y -= 1
+			pt = PathTile{g.position, g.direction}
+			if pt.isContained(g.path) {
+				return false, true
+			}
+			g.path = append(g.path, pt)
+			g.steps += 1
+			return true, false
+		}
+	case 1:
+		if g.position.x >= g.max_x {
+			return false, false
+		}
+		if g.Grid[g.position.y][g.position.x+1] == "#" {
+			g.direction = 2
+			return true, false
+		} else {
+			if trace {
+				g.Grid[g.position.y][g.position.x] = "-"
+			}
+			g.position.x += 1
+			pt = PathTile{g.position, g.direction}
+			if pt.isContained(g.path) {
+				return false, true
+			}
+			g.path = append(g.path, pt)
+			g.steps += 1
+			return true, false
+		}
+	case 2:
+		if g.position.y >= g.max_y {
+			return false, false
+		}
+		if g.Grid[g.position.y+1][g.position.x] == "#" {
+			g.direction = 3
+			return true, false
+		} else {
+			if trace {
+				g.Grid[g.position.y][g.position.x] = "|"
+			}
+			g.position.y += 1
+			pt = PathTile{g.position, g.direction}
+			if pt.isContained(g.path) {
+				return false, true
+			}
+			g.path = append(g.path, pt)
+			g.steps += 1
+			return true, false
+		}
+	case 3:
+		if g.position.x <= 0 {
+			return false, false
+		}
+		if g.Grid[g.position.y][g.position.x-1] == "#" {
+			g.direction = 0
+			return true, false
+		} else {
+			if trace {
+				g.Grid[g.position.y][g.position.x] = "-"
+			}
+			g.position.x -= 1
+			pt = PathTile{g.position, g.direction}
+			if pt.isContained(g.path) {
+				return false, true
+			}
+			g.path = append(g.path, pt)
+			g.steps += 1
+			return true, false
 		}
 	default:
 		panic("This case should not be triggered")
@@ -286,12 +394,31 @@ func (g *Game) render() {
 
 func main() {
 	var game = Game{}
-	game.init("day6/input.txt")
+	game.init("C:\\Users\\julia\\Documents\\projects\\advent-of-code-24\\day6")
 	var retry = true
 	for retry {
 		retry = game.forward(true)
 		game.render()
 	}
 	fmt.Println(game.steps)
-	game.generateGif("test.gif")
+	//game.generateGif("day6/visu.gif")
+	fmt.Println(game.path)
+
+	var tmp string
+	var ret = true
+	var loop bool
+	for _, pos := range game.path {
+		tmp = game.Grid[pos.pos.y][pos.pos.x]
+		game.Grid[pos.pos.y][pos.pos.x] = "#"
+		for ret {
+			ret, loop = game.detectLoop(false)
+			if loop {
+				game.obstacles = append(game.obstacles, pos.pos)
+			}
+		}
+		game.Grid[pos.pos.y][pos.pos.x] = tmp
+
+	}
+	fmt.Println(len(game.obstacles))
+
 }
