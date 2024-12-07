@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Game struct {
@@ -145,21 +147,129 @@ func solvable2(solution int, numbers []int) bool {
 	return false
 }
 
+type jobData struct {
+	solution int
+	data     []int
+}
+
+type jobResponse struct {
+	solution int
+	possible bool
+}
+
+func worker1(jobs <-chan jobData, results chan<- jobResponse, progressChan chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for job := range jobs {
+		possible := solvable1(job.solution, job.data)
+		results <- jobResponse{solution: job.solution, possible: possible}
+		progressChan <- 1 // Update progress
+	}
+}
+
+func worker2(jobs <-chan jobData, results chan<- jobResponse, progressChan chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for job := range jobs {
+		possible := solvable2(job.solution, job.data)
+		results <- jobResponse{solution: job.solution, possible: possible}
+		progressChan <- 1 // Update progress
+	}
+}
+
+func (g *Game) solvePart1() int {
+
+	num_jobs := len(g.input)
+	jobs := make(chan jobData, num_jobs)
+	results := make(chan jobResponse, num_jobs)
+	progressChan := make(chan int, num_jobs)
+	numCores := runtime.NumCPU()
+
+	go func() {
+		for i, block := range g.input {
+			jobs <- jobData{solution: i, data: block}
+		}
+		close(jobs)
+	}()
+
+	var wg sync.WaitGroup
+	for i := 0; i < numCores; i++ {
+		wg.Add(1)
+		go worker1(jobs, results, progressChan, &wg)
+	}
+
+	go func() {
+		completed := 0
+		for progress := range progressChan {
+			completed += progress
+			percentage := float64(completed) / float64(num_jobs) * 100
+			fmt.Printf("\rColculating Part 1: %d/%d (%.2f%%)", completed, num_jobs, percentage)
+		}
+		fmt.Println()
+	}()
+
+	wg.Wait()
+	close(results)
+	close(progressChan)
+
+	var cnt = 0
+	for frame := range results {
+		if frame.possible {
+			cnt += frame.solution
+		}
+	}
+	return cnt
+
+}
+
+func (g *Game) solvePart2() int {
+
+	num_jobs := len(g.input)
+	jobs := make(chan jobData, num_jobs)
+	results := make(chan jobResponse, num_jobs)
+	progressChan := make(chan int, num_jobs)
+	numCores := runtime.NumCPU()
+
+	go func() {
+		for i, block := range g.input {
+			jobs <- jobData{solution: i, data: block}
+		}
+		close(jobs)
+	}()
+
+	var wg sync.WaitGroup
+	for i := 0; i < numCores; i++ {
+		wg.Add(1)
+		go worker2(jobs, results, progressChan, &wg)
+	}
+
+	go func() {
+		completed := 0
+		for progress := range progressChan {
+			completed += progress
+			percentage := float64(completed) / float64(num_jobs) * 100
+			fmt.Printf("\rColculating Part 2: %d/%d (%.2f%%)", completed, num_jobs, percentage)
+		}
+		fmt.Println()
+	}()
+
+	wg.Wait()
+	close(results)
+	close(progressChan)
+
+	var cnt = 0
+	for frame := range results {
+		if frame.possible {
+			cnt += frame.solution
+		}
+	}
+	return cnt
+
+}
+
 func main() {
 	var game = Game{}
 	game.init("day7/input.txt")
-	var cnt = 0
-	for a, b := range game.input {
-		if solvable1(a, b) {
-			cnt += a
-		}
-	}
-	fmt.Println(cnt)
-	cnt = 0
-	for a, b := range game.input {
-		if solvable2(a, b) {
-			cnt += a
-		}
-	}
-	fmt.Println(cnt)
+	part1 := game.solvePart1()
+	part2 := game.solvePart2()
+	fmt.Printf("Part 1\n: %d", part1)
+	fmt.Printf("Part 2\n: %d", part2)
 }
