@@ -21,9 +21,8 @@ func (p Position) isContained(l []Position) bool {
 	return false
 }
 
-func antinodes(a, b Position, max_y, max_x int) []Position { // c...a...b...d
+func antinodes1(a, b Position, max_y, max_x int) []Position { // c...a...b...d
 	tmp := []Position{}
-	fmt.Println(a, b)
 	c := Position{a.y - (b.y - a.y), a.x - (b.x - a.x)}
 	d := Position{b.y - (a.y - b.y), b.x - (a.x - b.x)}
 	if !(c.x > max_x || c.x < 0 || c.y > max_y || c.y < 0) {
@@ -31,6 +30,23 @@ func antinodes(a, b Position, max_y, max_x int) []Position { // c...a...b...d
 	}
 	if !(d.x > max_x || d.x < 0 || d.y > max_y || d.y < 0) {
 		tmp = append(tmp, d)
+	}
+	return tmp
+}
+
+func antinodes2(a, b Position, max_y, max_x int) []Position { // c...a...b...d
+	tmp := []Position{}
+	diff_x := b.x - a.x
+	diff_y := b.y - a.y
+	cnt := 0
+	for !(a.x-(cnt*diff_x) > max_x || a.x-(cnt*diff_x) < 0 || a.y-(cnt*diff_y) > max_y || a.y-(cnt*diff_y) < 0) {
+		tmp = append(tmp, Position{a.x - (cnt * diff_x), a.y - (cnt * diff_y)})
+		cnt++
+	}
+	cnt = -1
+	for !(a.x-(cnt*diff_x) > max_x || a.x-(cnt*diff_x) < 0 || a.y-(cnt*diff_y) > max_y || a.y-(cnt*diff_y) < 0) {
+		tmp = append(tmp, Position{a.x - (cnt * diff_x), a.y - (cnt * diff_y)})
+		cnt--
 	}
 	return tmp
 }
@@ -75,7 +91,7 @@ func (g *Game) insertAntinode(nodes map[string][]Position) {
 	}
 }
 
-func (g *Game) computeAntinodes() {
+func (g *Game) computeAntinodes1() {
 	g.antinodes = []Position{}
 	g.sum = 0
 	tmp := make(map[string][]Position)
@@ -85,7 +101,24 @@ func (g *Game) computeAntinodes() {
 				if positions[a] == positions[len(positions)-1-b] {
 					break
 				}
-				tmp[signal] = append(tmp[signal], antinodes(positions[a], positions[len(positions)-1-b], len(g.input)-1, len(g.input)-1)...)
+				tmp[signal] = append(tmp[signal], antinodes1(positions[a], positions[len(positions)-1-b], len(g.input)-1, len(g.input)-1)...)
+			}
+		}
+	}
+	g.insertAntinode(tmp)
+}
+
+func (g *Game) computeAntinodes2() {
+	g.antinodes = []Position{}
+	g.sum = 0
+	tmp := make(map[string][]Position)
+	for signal, positions := range g.nodes {
+		for a := range (len(positions) / 2) + 1 {
+			for b := range (len(positions) / 2) + 1 {
+				if positions[a] == positions[len(positions)-1-b] {
+					break
+				}
+				tmp[signal] = append(tmp[signal], antinodes2(positions[a], positions[len(positions)-1-b], len(g.input)-1, len(g.input)-1)...)
 			}
 		}
 	}
@@ -95,5 +128,12 @@ func (g *Game) computeAntinodes() {
 func main() {
 	game := Game{}
 	game.init("day8/input.txt")
-	game.computeAntinodes()
+	game.computeAntinodes1()
+	fmt.Printf("Part 1: %d\n", game.sum)
+
+	game = Game{}
+	game.init("day8/input.txt")
+	game.computeAntinodes2()
+	fmt.Printf("Part 2: %d\n", game.sum)
+
 }
