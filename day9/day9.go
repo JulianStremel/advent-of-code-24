@@ -92,9 +92,13 @@ func (s *Storage) compactNonFragment() {
 					s.decrompressed[chunk_file.index+c] = -1
 				}
 				if chunk_file.size < chunk_free.size {
-					s.chunks_free = append(s.chunks_free, Chunk{chunk_free.index + chunk_file.size, chunk_free.size - chunk_file.size, -1})
+					s.chunks_free = append(s.chunks_free, Chunk{-1, chunk_free.index + chunk_file.size, chunk_free.size - chunk_file.size})
 				}
-				slices.Delete(s.chunks_free, b, b+1)
+				s.chunks_free = slices.Delete(s.chunks_free, b, b+1)
+				fmt.Println("hit", chunk_file, chunk_free, s.chunks_free)
+				break
+			} else {
+				fmt.Println("not hit", chunk_file, chunk_free, s.chunks_free)
 			}
 		}
 	}
@@ -109,8 +113,11 @@ func (s *Storage) updateChecksum() {
 }
 
 // 2333133121414131402
+// 00...111...2...333.44.5555.6666.777.888899
 // 00992111777.44.333....5555.6666.....8888..
 // -> 2858
+
+// 0099.111777.44.3332...5555.6666.....8888..
 
 func main() {
 	storage := Storage{}
@@ -120,5 +127,6 @@ func main() {
 	storage.compactNonFragment()
 	storage.updateChecksum()
 	fmt.Println(storage.decrompressed)
+	fmt.Println(storage.chunks_free)
 	fmt.Println(storage.checksum)
 }
