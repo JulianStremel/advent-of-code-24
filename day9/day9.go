@@ -61,6 +61,14 @@ func (s *Storage) decompress() {
 	}
 }
 
+func (s *Storage) updateChecksum() {
+	for a, num := range s.decrompressed {
+		if num > 0 {
+			s.checksum += a * num
+		}
+	}
+}
+
 func (s *Storage) compact() {
 	var tail = len(s.decrompressed) - 1
 	for a, num := range s.decrompressed {
@@ -79,54 +87,46 @@ func (s *Storage) compact() {
 		}
 	}
 	s.decrompressed = s.decrompressed[:tail+1]
+	s.updateChecksum()
 }
 
 func (s *Storage) compactNonFragment() {
-	for a, _ := range s.chunks_file {
+	// walk file chunks backwards
+	for a := range s.chunks_file {
 		chunk_file := s.chunks_file[len(s.chunks_file)-1-a]
+
+		// check free chunks from the front
 		for b, chunk_free := range s.chunks_free {
-			if chunk_file.size <= chunk_free.size {
-				// switch file chunk into free space
+
+			if chunk_file.size <= chunk_free.size && chunk_free.index < chunk_file.index {
+				// switch file chunk into free space and clear old position
 				for c := range chunk_file.size {
 					s.decrompressed[chunk_free.index+c] = s.decrompressed[chunk_file.index+c]
 					s.decrompressed[chunk_file.index+c] = -1
 				}
-				if chunk_file.size < chunk_free.size {
-					s.chunks_free = append(s.chunks_free, Chunk{-1, chunk_free.index + chunk_file.size, chunk_free.size - chunk_file.size})
+				if chunk_free.size == chunk_file.size {
+					s.chunks_free = slices.Delete(s.chunks_free, b, b+1)
+				} else {
+					s.chunks_free[b].size = chunk_free.size - chunk_file.size
+					s.chunks_free[b].index = chunk_free.index + chunk_file.size
 				}
-				s.chunks_free = slices.Delete(s.chunks_free, b, b+1)
-				fmt.Println("hit", chunk_file, chunk_free, s.chunks_free)
 				break
-			} else {
-				fmt.Println("not hit", chunk_file, chunk_free, s.chunks_free)
 			}
 		}
 	}
+	s.updateChecksum()
 }
-
-func (s *Storage) updateChecksum() {
-	for a, num := range s.decrompressed {
-		if num > 0 {
-			s.checksum += a * num
-		}
-	}
-}
-
-// 2333133121414131402
-// 00...111...2...333.44.5555.6666.777.888899
-// 00992111777.44.333....5555.6666.....8888..
-// -> 2858
-
-// 0099.111777.44.3332...5555.6666.....8888..
 
 func main() {
 	storage := Storage{}
-	storage.read("day9/input_test.txt")
+	storage.read("day9/input.txt")
 	storage.decompress()
-	fmt.Println(storage.decrompressed)
+	storage.compact()
+	fmt.Println("Part 1:", storage.checksum)
+
+	storage = Storage{}
+	storage.read("day9/input.txt")
+	storage.decompress()
 	storage.compactNonFragment()
-	storage.updateChecksum()
-	fmt.Println(storage.decrompressed)
-	fmt.Println(storage.chunks_free)
-	fmt.Println(storage.checksum)
+	fmt.Println("Part 2:", storage.checksum)
 }
