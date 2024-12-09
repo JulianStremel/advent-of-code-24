@@ -108,6 +108,10 @@ func (s *Storage) updateChecksum() {
 	}
 }
 
+// 2333133121414131402
+// 00992111777.44.333....5555.6666.....8888..
+// -> 2858
+
 func main() {
 	storage := Storage{}
 	storage.read("day9/input_test.txt")
