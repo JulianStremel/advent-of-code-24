@@ -7,11 +7,13 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Pluto struct {
 	pebbles []int
 	sum     int
+	cache   map[int]map[int]int
 }
 
 func (p *Pluto) load(path string) {
@@ -27,9 +29,6 @@ func (p *Pluto) load(path string) {
 	for fileScanner.Scan() {
 		tmpStr := []string{}
 		tmp := fileScanner.Text()
-		if err != nil {
-			panic(err)
-		}
 		tmpStr = strings.Split(tmp, " ")
 		for _, a := range tmpStr {
 			num, err := strconv.Atoi(a)
@@ -73,41 +72,61 @@ func (p *Pluto) blink() {
 }
 
 func (p *Pluto) blink2(num int) {
+	p.cache = make(map[int]map[int]int)
+	for b := range num {
+		p.cache[b] = make(map[int]int)
+	}
+
 	for _, a := range p.pebbles {
-		fmt.Println(a)
-		p.sum += blinkRecurs(num, a)
+		//fmt.Println(a)
+		p.sum += p.blinkRecurs(num, a)
 	}
 }
 
-func blinkRecurs(depth, num int) (result int) {
+func (p *Pluto) blinkRecurs(depth, num int) (result int) {
+
+	if _, ok := p.cache[depth]; !ok {
+		p.cache[depth] = make(map[int]int)
+	}
+	if val, ok := p.cache[depth][num]; ok {
+		return val
+	}
 	if depth <= 0 {
-		fmt.Println("got to depth 0")
 		return 1
 	}
 	if num == 0 {
-		return blinkRecurs(depth-1, 1)
+		tmp := p.blinkRecurs(depth-1, 1)
+		p.cache[depth][num] = tmp
+		return tmp
 	}
-	tmp := strconv.Itoa(num)
-	if len(tmp)%2 == 0 {
-		a, err := strconv.Atoi(tmp[:(len(tmp) / 2)])
+	str := strconv.Itoa(num)
+	if len(str)%2 == 0 {
+		a, err := strconv.Atoi(str[:(len(str) / 2)])
 		if err != nil {
 			panic(err)
 		}
-		b, err := strconv.Atoi(tmp[(len(tmp) / 2):])
+		b, err := strconv.Atoi(str[(len(str) / 2):])
 		if err != nil {
 			panic(err)
 		}
-		return blinkRecurs(depth-1, a) + blinkRecurs(depth-1, b)
+		c, d := p.blinkRecurs(depth-1, a), p.blinkRecurs(depth-1, b)
+		//p.cache[depth-1][a] = c
+		//p.cache[depth-1][b] = d
+		return c + d
 	}
-	return blinkRecurs(depth-1, num*2024)
+	tmp := p.blinkRecurs(depth-1, num*2024)
+	p.cache[depth][num] = tmp
+	return tmp
 }
 
-// 104706078592190 too low
-
 func main() {
+	//dt := time.Now()
+	//fmt.Println("started at: ", dt.String())
+	start := time.Now()
 	pluto := Pluto{}
 	pluto.load("day11/input.txt")
-	fmt.Println(pluto.pebbles)
 	pluto.blink2(75)
+	duration := time.Since(start)
+	fmt.Println("Recurse 1 took: ", duration.Microseconds(), " us")
 	fmt.Println(pluto.sum)
 }
