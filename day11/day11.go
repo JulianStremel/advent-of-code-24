@@ -120,13 +120,22 @@ func (p *Pluto) blinkRecurs(depth, num int) (result int) {
 }
 
 func main() {
-	//dt := time.Now()
-	//fmt.Println("started at: ", dt.String())
 	start := time.Now()
 	pluto := Pluto{}
 	pluto.load("day11/input.txt")
-	pluto.blink2(75)
+	for range 25 {
+		pluto.blink()
+	}
 	duration := time.Since(start)
 	fmt.Println("Recurse 1 took: ", duration.Microseconds(), " us")
-	fmt.Println(pluto.sum)
+	fmt.Println("Part 1:", pluto.sum)
+
+	start = time.Now()
+	pluto = Pluto{}
+	pluto.load("day11/input.txt")
+	pluto.blink2(75)
+	duration = time.Since(start)
+	fmt.Println("Recurse 1 took: ", duration.Microseconds(), " us")
+	fmt.Println("Part 2:", pluto.sum)
+
 }
