@@ -11,6 +11,7 @@ import (
 
 type Pluto struct {
 	pebbles []int
+	sum     int
 }
 
 func (p *Pluto) load(path string) {
@@ -71,13 +72,42 @@ func (p *Pluto) blink() {
 	}
 }
 
+func (p *Pluto) blink2(num int) {
+	for _, a := range p.pebbles {
+		fmt.Println(a)
+		p.sum += blinkRecurs(num, a)
+	}
+}
+
+func blinkRecurs(depth, num int) (result int) {
+	if depth <= 0 {
+		fmt.Println("got to depth 0")
+		return 1
+	}
+	if num == 0 {
+		return blinkRecurs(depth-1, 1)
+	}
+	tmp := strconv.Itoa(num)
+	if len(tmp)%2 == 0 {
+		a, err := strconv.Atoi(tmp[:(len(tmp) / 2)])
+		if err != nil {
+			panic(err)
+		}
+		b, err := strconv.Atoi(tmp[(len(tmp) / 2):])
+		if err != nil {
+			panic(err)
+		}
+		return blinkRecurs(depth-1, a) + blinkRecurs(depth-1, b)
+	}
+	return blinkRecurs(depth-1, num*2024)
+}
+
+// 104706078592190 too low
+
 func main() {
 	pluto := Pluto{}
-	pluto.load("day11/input_test.txt")
+	pluto.load("day11/input.txt")
 	fmt.Println(pluto.pebbles)
-	for a := range 75 {
-		pluto.blink()
-		fmt.Println(a)
-	}
-	fmt.Println(len(pluto.pebbles))
+	pluto.blink2(75)
+	fmt.Println(pluto.sum)
 }
