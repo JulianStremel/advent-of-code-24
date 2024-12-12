@@ -51,14 +51,14 @@ func (m *Map) load(path string) {
 }
 
 func filterUnique(tiles []*PathTile) []*PathTile {
-	seen := make(map[[2]int]bool) // Use a map to track (x, y) pairs
+	seen := make(map[[2]int]bool)
 	var result []*PathTile
 
 	for _, tile := range tiles {
 		if tile == nil {
-			continue // Skip nil pointers
+			continue
 		}
-		key := [2]int{tile.x, tile.y} // Create a unique key for (x, y)
+		key := [2]int{tile.x, tile.y}
 		if !seen[key] {
 			seen[key] = true
 			result = append(result, tile)
