@@ -4,14 +4,16 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
 type Garden struct {
-	tiles map[string][]Point
-	max_y int
-	max_x int
-	plots []Plot
+	tiles   map[string][]Point
+	max_y   int
+	max_x   int
+	plots   []Plot
+	visited []Point
 }
 
 type Plot struct {
@@ -50,33 +52,100 @@ func (g *Garden) load(path string) {
 	g.max_y = y
 }
 
-func (g *Garden) recursiveSearch(parent, child Point, flower string) (next []Point, perimeter int) {
+func (g *Garden) recursiveSearch(parent Point, flower string) (perimeter int) {
+	// append calling node to visited
+	g.visited = append(g.visited, parent)
+
+	// check if outer bounds for y
 	if parent.y <= 0 {
 		perimeter++
-	} else {
-		nxt, per := g.recursiveSearch(child, Point{x: child.x, y: child.y}, flower)
 
+	} else {
+		//fmt.Println("walking up")
+		tmp := Point{y: parent.y - 1, x: parent.x}
+
+		if !slices.Contains(g.visited, tmp) {
+			if slices.Contains(g.tiles[flower], tmp) {
+				perimeter += g.recursiveSearch(tmp, flower)
+			} else {
+				perimeter++
+			}
+		}
 	}
 	if parent.y >= g.max_y {
 		perimeter++
+
+	} else {
+		//fmt.Println("walking down")
+		tmp := Point{y: parent.y + 1, x: parent.x}
+		if !slices.Contains(g.visited, tmp) {
+			if slices.Contains(g.tiles[flower], tmp) {
+				perimeter += g.recursiveSearch(tmp, flower)
+			} else {
+				perimeter++
+			}
+		}
 	}
 
+	if parent.x <= 0 {
+		perimeter++
+
+	} else {
+		//fmt.Println("walking left")
+		tmp := Point{y: parent.y, x: parent.x - 1}
+
+		if !slices.Contains(g.visited, tmp) {
+			if slices.Contains(g.tiles[flower], tmp) {
+				perimeter += g.recursiveSearch(tmp, flower)
+			} else {
+				perimeter++
+			}
+		}
+	}
+	if parent.x >= g.max_x {
+		perimeter++
+
+	} else {
+		//fmt.Println("walking right")
+		tmp := Point{y: parent.y, x: parent.x + 1}
+		if !slices.Contains(g.visited, tmp) {
+			if slices.Contains(g.tiles[flower], tmp) {
+				perimeter += g.recursiveSearch(tmp, flower)
+			} else {
+				perimeter++
+			}
+		}
+	}
+
+	return perimeter
 }
 
 func (g *Garden) findPlots() {
 	g.plots = []Plot{}
+	sum := 0
 	for flower, tiles := range g.tiles {
-		for _, tile := range tiles {
-
+		for range tiles {
+			if len(g.tiles[flower]) == 0 {
+				break
+			}
+			tile := g.tiles[flower][0]
+			g.visited = []Point{}
+			tmp := g.recursiveSearch(tile, flower)
+			plt := Plot{flower: flower, perimeter: tmp, tiles: g.visited}
+			g.plots = append(g.plots, plt)
+			fmt.Println("start", tile, flower, len(g.visited), tmp)
+			sum += len(g.visited) * tmp
+			for _, a := range g.visited {
+				ind := slices.Index(g.tiles[flower], a)
+				g.tiles[flower] = slices.Delete(g.tiles[flower], ind, ind+1)
+			}
 		}
-		fmt.Println(flower, tile)
 	}
+	fmt.Println(sum)
 }
 
 func main() {
 	garden := Garden{}
-	garden.load("day12/input_test.txt")
+	garden.load("day12/input.txt")
 	garden.findPlots()
-	panic("test")
-	fmt.Println(garden.tiles)
 }
